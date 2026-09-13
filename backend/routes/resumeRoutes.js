@@ -1,10 +1,14 @@
-
 const express = require("express");
 const multer = require("multer");
 const { createWorker } = require("tesseract.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { spawn } = require("child_process");
 const path = require("path");
+const pdfParseModule = require("pdf-parse");
+const pdfParse =
+    typeof pdfParseModule === "function"
+        ? pdfParseModule
+        : pdfParseModule.default;
 
 const router = express.Router();
 
@@ -26,6 +30,7 @@ const model = genAI.getGenerativeModel({
 
 const upload = multer({
     storage: multer.memoryStorage(),
+
     limits: {
         fileSize: 5 * 1024 * 1024
     }
@@ -36,26 +41,34 @@ const upload = multer({
 // ======================================================
 
 async function extractTextFromImage(buffer) {
+
     console.log("OCR started...");
 
     const worker = await createWorker("eng");
 
-    const result = await worker.recognize(buffer);
+    try {
 
-    const text = result.data.text;
+        const result = await worker.recognize(buffer);
 
-    await worker.terminate();
+        const text = result.data.text;
 
-    console.log("OCR completed.");
+        console.log("OCR completed.");
 
-    return text;
+        return text;
+
+    } finally {
+
+        await worker.terminate();
+
+    }
 }
 
 // ======================================================
-// AI RESUME ANALYSIS
+// GEMINI RESUME ANALYSIS
 // ======================================================
 
 async function analyzeResumeWithAI(resumeText) {
+
     console.log("🤖 Gemini AI analysis started...");
 
     const prompt = `
@@ -63,11 +76,16 @@ You are an expert AI Career and Resume Intelligence system.
 
 Analyze the following resume carefully.
 
-Your job is to identify the candidate's actual career field,
-technical and professional skills, suitable career paths,
-skill gaps, and a personalized learning roadmap.
+Identify:
 
-IMPORTANT:
+1. Candidate's actual career field
+2. Current technical and professional skills
+3. Suitable career paths
+4. Missing skills
+5. Personalized learning roadmap
+6. Interview topics
+
+IMPORTANT RULES:
 
 - Do NOT assume the candidate is a software developer.
 - Identify the field from the actual resume.
@@ -76,46 +94,46 @@ IMPORTANT:
 - If the resume is Finance, give a Finance roadmap.
 - If the resume is HR, give an HR roadmap.
 - If the resume is Sales, give a Sales roadmap.
-- If the resume is any other field, create a roadmap specifically for that field.
-- Do not give programming, DSA or algorithms unless they are genuinely relevant to the candidate's field/career.
-- Use only information supported by the resume when describing current skills.
-- You may recommend skills that are missing but relevant to the recommended career.
+- For any other field, create a roadmap specific to that field.
+- Do not recommend programming, DSA or algorithms unless genuinely relevant.
+- Use only information supported by the resume for current skills.
+- You may recommend missing skills relevant to the recommended career.
 
 Return ONLY valid JSON.
 
 JSON format:
 
 {
-  "field": "Detected career field",
-  "summary": "Short professional summary",
-  "skills": [
-    "skill 1",
-    "skill 2"
-  ],
-  "careers": [
-    "career 1",
-    "career 2",
-    "career 3"
-  ],
-  "skillGap": [
-    "missing skill 1",
-    "missing skill 2"
-  ],
-  "roadmap": [
-    {
-      "step": 1,
-      "title": "Step title",
-      "skills": [
-        "skill"
-      ],
-      "description": "What the candidate should learn"
-    }
-  ],
-  "interviewTopics": [
-    "topic 1",
-    "topic 2",
-    "topic 3"
-  ]
+    "field": "Detected career field",
+    "summary": "Short professional summary",
+    "skills": [
+        "skill 1",
+        "skill 2"
+    ],
+    "careers": [
+        "career 1",
+        "career 2",
+        "career 3"
+    ],
+    "skillGap": [
+        "missing skill 1",
+        "missing skill 2"
+    ],
+    "roadmap": [
+        {
+            "step": 1,
+            "title": "Step title",
+            "skills": [
+                "skill"
+            ],
+            "description": "What the candidate should learn"
+        }
+    ],
+    "interviewTopics": [
+        "topic 1",
+        "topic 2",
+        "topic 3"
+    ]
 }
 
 Resume:
@@ -135,8 +153,11 @@ ${resumeText}
         .trim();
 
     try {
+
         return JSON.parse(cleanedResponse);
+
     } catch (error) {
+
         console.error("Gemini JSON parsing failed:");
         console.error(response);
 
@@ -151,10 +172,13 @@ ${resumeText}
 // ======================================================
 
 function predictCareerWithML(skills) {
+
     return new Promise((resolve, reject) => {
 
         if (!skills || !skills.length) {
+
             resolve(null);
+
             return;
         }
 
@@ -165,7 +189,6 @@ function predictCareerWithML(skills) {
         console.log("🧠 Sending skills to ML model:");
         console.log(skillsText);
 
-        // Project root -> ml -> predict.py
         const pythonScript = path.join(
             __dirname,
             "..",
@@ -174,26 +197,31 @@ function predictCareerWithML(skills) {
             "predict.py"
         );
 
-        console.log(
-            "🐍 Running ML:",
-            pythonScript
+        const mlFolder = path.join(
+            __dirname,
+            "..",
+            "..",
+            "ml"
         );
+
+        console.log("🐍 Running ML:");
+        console.log(pythonScript);
 
         const pythonProcess = spawn(
             "py",
             [pythonScript, skillsText],
             {
-                cwd: path.join(
-                __dirname,
-                "..",
-                "..",
-                "ml"
-                )
+                cwd: mlFolder
             }
         );
 
         pythonProcess.on("error", (error) => {
-            console.error("🐍 Python process error:", error.message);
+
+            console.error(
+                "🐍 Python process error:",
+                error.message
+            );
+
             reject(error);
         });
 
@@ -203,14 +231,18 @@ function predictCareerWithML(skills) {
         pythonProcess.stdout.on(
             "data",
             (data) => {
+
                 output += data.toString();
+
             }
         );
 
         pythonProcess.stderr.on(
             "data",
             (data) => {
+
                 errorOutput += data.toString();
+
             }
         );
 
@@ -224,6 +256,7 @@ function predictCareerWithML(skills) {
                 );
 
                 if (errorOutput) {
+
                     console.error(
                         "ML Error:",
                         errorOutput
@@ -231,33 +264,31 @@ function predictCareerWithML(skills) {
                 }
 
                 if (code !== 0) {
+
                     reject(
                         new Error(
                             "ML prediction process failed."
                         )
                     );
+
                     return;
                 }
 
                 try {
 
-                    // predict.py may print:
-                    // 🤖 Career Prediction Model Loaded Successfully!
-                    // {"success":true,"career":"Data Scientist"}
-
                     const lines = output
                         .trim()
                         .split(/\r?\n/);
 
-                    const jsonLine =
-                        lines
-                            .reverse()
-                            .find(
-                                line =>
-                                    line.trim().startsWith("{")
-                            );
+                    const jsonLine = lines
+                        .reverse()
+                        .find(
+                            line =>
+                                line.trim().startsWith("{")
+                        );
 
                     if (!jsonLine) {
+
                         throw new Error(
                             "ML did not return valid JSON."
                         );
@@ -266,9 +297,8 @@ function predictCareerWithML(skills) {
                     const result =
                         JSON.parse(jsonLine);
 
-                    if (
-                        !result.success
-                    ) {
+                    if (!result.success) {
+
                         throw new Error(
                             result.message ||
                             "Career prediction failed."
@@ -316,10 +346,22 @@ router.post(
             if (!req.file) {
 
                 return res.status(400).json({
+
                     message:
                         "Please upload a resume"
+
                 });
             }
+
+            console.log(
+                "📄 File received:",
+                req.file.originalname
+            );
+
+            console.log(
+                "📄 File type:",
+                req.file.mimetype
+            );
 
             let text = "";
 
@@ -337,38 +379,39 @@ router.post(
                 );
 
                 console.log(
-                    "Starting PDF OCR..."
+                    "Reading PDF text..."
                 );
 
-                const document =
-                    await pdf(
+                // IMPORTANT:
+                // pdf-parse@1.1.1
+                // works with this syntax.
+
+                const pdfData =
+                    await pdfParse(
                         req.file.buffer
                     );
 
-                let pageNumber = 0;
-
-                for await (
-                    const page of document
-                ) {
-
-                    pageNumber++;
-
-                    console.log(
-                        `OCR processing page ${pageNumber}...`
-                    );
-
-                    const pageText =
-                        await extractTextFromImage(
-                            page
-                        );
-
-                    text +=
-                        "\n" + pageText;
-                }
+                text =
+                    pdfData.text || "";
 
                 console.log(
-                    "PDF OCR completed."
+                    "PDF text extraction completed."
                 );
+
+                console.log(
+                    "Extracted characters:",
+                    text.length
+                );
+
+                if (!text.trim()) {
+
+                    return res.status(400).json({
+
+                        message:
+                            "This PDF does not contain readable text. Please upload a text-based PDF."
+
+                    });
+                }
             }
 
             // ==================================================
@@ -376,12 +419,16 @@ router.post(
             // ==================================================
 
             else if (
+
                 req.file.mimetype ===
                     "image/jpeg" ||
+
                 req.file.mimetype ===
                     "image/png" ||
+
                 req.file.mimetype ===
                     "image/jpg"
+
             ) {
 
                 console.log(
@@ -401,8 +448,10 @@ router.post(
             else {
 
                 return res.status(400).json({
+
                     message:
                         "Only PDF, JPG and PNG files are supported."
+
                 });
             }
 
@@ -413,8 +462,10 @@ router.post(
             if (!text.trim()) {
 
                 return res.status(400).json({
+
                     message:
                         "Could not read text from this resume."
+
                 });
             }
 
@@ -423,10 +474,9 @@ router.post(
             );
 
             console.log(
-                "EXTRACTED RESUME TEXT:"
+                "Extracted resume text length:",
+                text.length
             );
-
-            console.log(text);
 
             // ==================================================
             // GEMINI ANALYSIS
@@ -461,7 +511,6 @@ router.post(
                     mlError.message
                 );
 
-                // Gemini result will still work
                 mlCareer = null;
             }
 
@@ -469,7 +518,7 @@ router.post(
             // FINAL RESPONSE
             // ==================================================
 
-            res.json({
+            return res.json({
 
                 message:
                     "Resume analyzed successfully",
@@ -480,10 +529,10 @@ router.post(
                     ),
 
                 field:
-                    aiAnalysis.field,
+                    aiAnalysis.field || "",
 
                 summary:
-                    aiAnalysis.summary,
+                    aiAnalysis.summary || "",
 
                 skills:
                     aiAnalysis.skills || [],
@@ -500,10 +549,6 @@ router.post(
                 interviewTopics:
                     aiAnalysis.interviewTopics || [],
 
-                // ============================================
-                // ML RESULT
-                // ============================================
-
                 mlCareer:
                     mlCareer
 
@@ -512,17 +557,18 @@ router.post(
         } catch (error) {
 
             console.error(
-                "Resume Analysis Error:",
+                "❌ Resume Analysis Error:",
                 error
             );
 
-            res.status(500).json({
+            return res.status(500).json({
 
                 message:
                     "Resume analysis failed",
 
                 error:
                     error.message
+
             });
         }
     }
@@ -538,6 +584,7 @@ function calculateScore(skills) {
         !skills ||
         !skills.length
     ) {
+
         return 0;
     }
 
@@ -550,6 +597,7 @@ function calculateScore(skills) {
         );
 
     if (score > 100) {
+
         score = 100;
     }
 
