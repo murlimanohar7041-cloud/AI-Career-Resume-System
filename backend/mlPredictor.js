@@ -3,8 +3,6 @@ const path = require("path");
 
 const modelPath = path.join(
     __dirname,
-    "..",
-    "ml",
     "career_model.json"
 );
 
