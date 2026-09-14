@@ -1,14 +1,4 @@
-const fs = require("fs");
-const path = require("path");
-
-const modelPath = path.join(
-    __dirname,
-    "career_model.json"
-);
-
-const model = JSON.parse(
-    fs.readFileSync(modelPath, "utf8")
-);
+const model = require("./career_model.json");
 
 function tokenize(text) {
     return text
