@@ -167,6 +167,111 @@ ${resumeText}
     }
 }
 
+
+async function analyzePDFWithAI(buffer) {
+    console.log("🤖 Sending PDF directly to Gemini...");
+
+    const prompt = `
+You are an expert AI Career and Resume Intelligence system.
+
+Analyze the attached resume PDF carefully.
+
+The PDF may be a scanned/image-based resume, so read the text from the document visually if necessary.
+
+Identify:
+
+1. Candidate's actual career field
+2. Current technical and professional skills
+3. Suitable career paths
+4. Missing skills
+5. Personalized learning roadmap
+6. Interview topics
+
+IMPORTANT RULES:
+
+- Do NOT assume the candidate is a software developer.
+- Identify the field from the actual resume.
+- If the resume is Digital Marketing, give a Digital Marketing roadmap.
+- If the resume is Data Science, give a Data Science roadmap.
+- If the resume is Finance, give a Finance roadmap.
+- If the resume is HR, give an HR roadmap.
+- If the resume is Sales, give a Sales roadmap.
+- For any other field, create a roadmap specific to that field.
+- Do not recommend programming, DSA or algorithms unless genuinely relevant.
+- Use only information supported by the resume for current skills.
+- You may recommend missing skills relevant to the recommended career.
+
+Return ONLY valid JSON.
+
+JSON format:
+
+{
+    "field": "Detected career field",
+    "summary": "Short professional summary",
+    "skills": [
+        "skill 1",
+        "skill 2"
+    ],
+    "careers": [
+        "career 1",
+        "career 2",
+        "career 3"
+    ],
+    "skillGap": [
+        "missing skill 1",
+        "missing skill 2"
+    ],
+    "roadmap": [
+        {
+            "step": 1,
+            "title": "Step title",
+            "skills": [
+                "skill"
+            ],
+            "description": "What the candidate should learn"
+        }
+    ],
+    "interviewTopics": [
+        "topic 1",
+        "topic 2",
+        "topic 3"
+    ]
+}
+`;
+
+    const result = await model.generateContent([
+        {
+            inlineData: {
+                data: buffer.toString("base64"),
+                mimeType: "application/pdf"
+            }
+        },
+        {
+            text: prompt
+        }
+    ]);
+
+    const response = result.response.text();
+
+    console.log("🤖 Gemini PDF analysis response received.");
+
+    const cleanedResponse = response
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
+
+    try {
+        return JSON.parse(cleanedResponse);
+    } catch (error) {
+        console.error("Gemini PDF JSON parsing failed:");
+        console.error(response);
+
+        throw new Error(
+            "AI returned an invalid analysis format."
+        );
+    }
+}
+
 // ======================================================
 // ML CAREER PREDICTION
 // ======================================================
@@ -370,49 +475,159 @@ router.post(
             // ==================================================
 
             if (
-                req.file.mimetype ===
-                "application/pdf"
-            ) {
+    req.file.mimetype ===
+    "application/pdf"
+) {
+    console.log("PDF detected...");
+    console.log("Reading PDF text...");
 
-                console.log(
-                    "PDF detected..."
+    try {
+        const pdfData =
+            await pdfParse(
+                req.file.buffer
+            );
+
+        text =
+            pdfData.text || "";
+
+        console.log(
+            "PDF text extraction completed."
+        );
+
+        console.log(
+            "Extracted characters:",
+            text.length
+        );
+
+    } catch (pdfError) {
+
+        console.error(
+            "⚠️ PDF text extraction failed:",
+            pdfError.message
+        );
+
+        console.log(
+            "🤖 Trying direct Gemini PDF analysis..."
+        );
+
+        const aiAnalysis =
+            await analyzePDFWithAI(
+                req.file.buffer
+            );
+
+        let mlCareer = null;
+
+        try {
+            mlCareer =
+                await predictCareerWithML(
+                    aiAnalysis.skills || []
                 );
+        } catch (mlError) {
+            console.error(
+                "⚠️ ML prediction failed:",
+                mlError.message
+            );
+        }
 
-                console.log(
-                    "Reading PDF text..."
+        return res.json({
+            message:
+                "Resume analyzed successfully",
+
+            score:
+                calculateScore(
+                    aiAnalysis.skills
+                ),
+
+            field:
+                aiAnalysis.field || "",
+
+            summary:
+                aiAnalysis.summary || "",
+
+            skills:
+                aiAnalysis.skills || [],
+
+            missingSkills:
+                aiAnalysis.skillGap || [],
+
+            careers:
+                aiAnalysis.careers || [],
+
+            roadmap:
+                aiAnalysis.roadmap || [],
+
+            interviewTopics:
+                aiAnalysis.interviewTopics || [],
+
+            mlCareer:
+                mlCareer
+        });
+    }
+
+    if (!text.trim()) {
+
+        console.log(
+            "⚠️ PDF has no readable text."
+        );
+
+        console.log(
+            "🤖 Trying direct Gemini PDF analysis..."
+        );
+
+        const aiAnalysis =
+            await analyzePDFWithAI(
+                req.file.buffer
+            );
+
+        let mlCareer = null;
+
+        try {
+            mlCareer =
+                await predictCareerWithML(
+                    aiAnalysis.skills || []
                 );
+        } catch (mlError) {
+            console.error(
+                "⚠️ ML prediction failed:",
+                mlError.message
+            );
+        }
 
-                // IMPORTANT:
-                // pdf-parse@1.1.1
-                // works with this syntax.
+        return res.json({
+            message:
+                "Resume analyzed successfully",
 
-                const pdfData =
-                    await pdfParse(
-                        req.file.buffer
-                    );
+            score:
+                calculateScore(
+                    aiAnalysis.skills
+                ),
 
-                text =
-                    pdfData.text || "";
+            field:
+                aiAnalysis.field || "",
 
-                console.log(
-                    "PDF text extraction completed."
-                );
+            summary:
+                aiAnalysis.summary || "",
 
-                console.log(
-                    "Extracted characters:",
-                    text.length
-                );
+            skills:
+                aiAnalysis.skills || [],
 
-                if (!text.trim()) {
+            missingSkills:
+                aiAnalysis.skillGap || [],
 
-                    return res.status(400).json({
+            careers:
+                aiAnalysis.careers || [],
 
-                        message:
-                            "This PDF does not contain readable text. Please upload a text-based PDF."
+            roadmap:
+                aiAnalysis.roadmap || [],
 
-                    });
-                }
-            }
+            interviewTopics:
+                aiAnalysis.interviewTopics || [],
+
+            mlCareer:
+                mlCareer
+        });
+    }
+}
 
             // ==================================================
             // JPG / PNG
