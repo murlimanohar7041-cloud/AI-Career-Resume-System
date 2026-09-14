@@ -4,7 +4,7 @@ const { createWorker } = require("tesseract.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { spawn } = require("child_process");
 const path = require("path");
-const pdfParseModule = require("pdf-parse");
+const pdfParseModule = require("pdf-parse/lib/pdf-parse.js");
 const pdfParse =
     typeof pdfParseModule === "function"
         ? pdfParseModule
