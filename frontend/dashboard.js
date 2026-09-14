@@ -1,3 +1,15 @@
+let resumeAnalyzed = false;
+
+function requireResume() {
+    if (!resumeAnalyzed) {
+        alert("Please upload and analyze your resume first.");
+        return false;
+    }
+
+    return true;
+}
+
+
 // ======================================================
 // 1. USER LOGIN CHECK
 // ======================================================
@@ -36,7 +48,6 @@ let resumeAnalysis = null;
 // ======================================================
 
 function logout() {
-
     localStorage.removeItem("user");
     localStorage.removeItem("resumeAnalysis");
 
@@ -129,7 +140,6 @@ async function analyzeResume() {
             "loading-message";
     }
 
-
     if (resultBox) {
         resultBox.classList.add("hidden");
     }
@@ -161,7 +171,7 @@ async function analyzeResume() {
 
         const response =
             await fetch(
-                    "/api/resume/analyze",
+                "/api/resume/analyze",
                 {
                     method: "POST",
                     body: formData
@@ -177,7 +187,6 @@ async function analyzeResume() {
             response.headers.get("content-type") || "";
 
         let data;
-
 
         if (
             contentType.includes(
@@ -231,11 +240,7 @@ async function analyzeResume() {
         resumeAnalysis =
             data;
 
-
-        localStorage.setItem(
-            "resumeAnalysis",
-            JSON.stringify(data)
-        );
+        resumeAnalyzed = true;
 
 
         // ==================================================
@@ -250,7 +255,6 @@ async function analyzeResume() {
             message.className =
                 "success-message";
         }
-
 
         if (resultBox) {
             resultBox.classList.remove("hidden");
@@ -592,11 +596,10 @@ function closeFeature() {
 
 function checkResume() {
 
-    if (!resumeAnalysis) {
+    if (!resumeAnalyzed || !resumeAnalysis) {
 
         showFeature(
             "⚠️ Resume Required",
-
             `
                 <div class="empty-feature">
 
@@ -661,7 +664,6 @@ function showCareerRecommendation() {
         return;
     }
 
-
     const careers =
         resumeAnalysis.careers || [];
 
@@ -695,7 +697,6 @@ function showCareerRecommendation() {
             </div>
 
         </div>
-
     `;
 
 
@@ -724,7 +725,6 @@ function showCareerRecommendation() {
                 </p>
 
             </div>
-
         `;
     }
 
@@ -747,14 +747,11 @@ function showCareerRecommendation() {
 
         </div>
 
-
         <h4>
             Recommended Career Paths
         </h4>
 
-
         <div class="career-list">
-
     `;
 
 
@@ -789,7 +786,6 @@ function showCareerRecommendation() {
                         </div>
 
                     </div>
-
                 `;
             }
         );
@@ -810,7 +806,6 @@ function showCareerRecommendation() {
 
         </div>
 
-
         <div class="feature-tip">
 
             💡 Your ML prediction and AI career
@@ -818,7 +813,6 @@ function showCareerRecommendation() {
             your resume skills and career profile.
 
         </div>
-
     `;
 
 
@@ -838,7 +832,6 @@ function showSkillGap() {
     if (!checkResume()) {
         return;
     }
-
 
     const gaps =
         resumeAnalysis.missingSkills || [];
@@ -891,7 +884,6 @@ function showSkillGap() {
 
 
         <div class="skill-gap-list">
-
     `;
 
 
@@ -913,7 +905,6 @@ function showSkillGap() {
                         </strong>
 
                     </div>
-
                 `;
             }
         );
@@ -934,14 +925,12 @@ function showSkillGap() {
 
         </div>
 
-
         <div class="feature-tip">
 
             💡 Focus on the most relevant skills first
             instead of learning unrelated technologies.
 
         </div>
-
     `;
 
 
@@ -961,7 +950,6 @@ function showJobMatcher() {
     if (!checkResume()) {
         return;
     }
-
 
     const skills =
         resumeAnalysis.skills || [];
@@ -1028,7 +1016,6 @@ function showJobMatcher() {
 
 
         <div class="career-list">
-
     `;
 
 
@@ -1059,7 +1046,6 @@ function showJobMatcher() {
                         </div>
 
                     </div>
-
                 `;
             }
         );
@@ -1087,7 +1073,6 @@ function showJobMatcher() {
 
 
         <div class="skills-container">
-
     `;
 
 
@@ -1126,7 +1111,6 @@ function showJobMatcher() {
             an exact job-match percentage.
 
         </div>
-
     `;
 
 
@@ -1135,7 +1119,6 @@ function showJobMatcher() {
         html
     );
 }
-
 
 // ======================================================
 // 14. LEARNING ROADMAP
@@ -1146,7 +1129,6 @@ function showLearningRoadmap() {
     if (!checkResume()) {
         return;
     }
-
 
     const roadmap =
         resumeAnalysis.roadmap || [];
@@ -1181,7 +1163,6 @@ function showLearningRoadmap() {
 
 
         <div class="roadmap-list">
-
     `;
 
 
@@ -1245,7 +1226,6 @@ function showLearningRoadmap() {
                         </div>
 
                     </div>
-
                 `;
             }
         );
@@ -1268,7 +1248,6 @@ function showLearningRoadmap() {
     html += `
 
         </div>
-
     `;
 
 
@@ -1296,6 +1275,7 @@ let interviewState = {
     startTime: null,
 
     timerInterval: null
+
 };
 
 
@@ -1308,7 +1288,6 @@ function showAIInterview() {
     if (!checkResume()) {
         return;
     }
-
 
     const topics =
         resumeAnalysis.interviewTopics || [];
@@ -1347,6 +1326,7 @@ function showAIInterview() {
 
 
         <div class="interview-info-grid">
+
 
             <div class="interview-info-card">
 
@@ -1451,7 +1431,6 @@ function showAIInterview() {
             </h4>
 
             <div class="skills-container">
-
     `;
 
 
@@ -1463,7 +1442,9 @@ function showAIInterview() {
                 html += `
 
                     <span class="skill-tag">
+
                         ${escapeHTML(skill)}
+
                     </span>
 
                 `;
@@ -1515,11 +1496,12 @@ function showAIInterview() {
                 class="interview-start-btn"
                 onclick="startInterview()"
             >
+
                 🎤 Start Realistic Interview
+
             </button>
 
         </div>
-
     `;
 
 
@@ -1642,7 +1624,7 @@ function prepareInterviewQuestions() {
 
 function startInterview() {
 
-    if (!resumeAnalysis) {
+    if (!checkResume()) {
         return;
     }
 
@@ -2119,6 +2101,7 @@ function submitInterviewAnswer() {
             </strong>
 
             Try using the STAR approach:
+
             Situation → Task → Action → Result.
 
         </div>
@@ -2381,7 +2364,9 @@ function finishInterview() {
                 class="interview-start-btn"
                 onclick="startInterview()"
             >
+
                 🔄 Practice Again
+
             </button>
 
         </div>
@@ -2392,57 +2377,15 @@ function finishInterview() {
 
 
 // ======================================================
-// 24. RESTORE PREVIOUS ANALYSIS
+// IMPORTANT
 // ======================================================
-
-const savedAnalysis =
-    localStorage.getItem(
-        "resumeAnalysis"
-    );
-
-
-if (savedAnalysis) {
-
-    try {
-
-        resumeAnalysis =
-            JSON.parse(
-                savedAnalysis
-            );
-
-
-        // ==================================================
-        // RESTORE ML PREDICTION ON DASHBOARD
-        // ==================================================
-
-        const mlPredictedCareer =
-            document.getElementById(
-                "mlPredictedCareer"
-            );
-
-
-        if (
-            mlPredictedCareer &&
-            resumeAnalysis.mlCareer
-        ) {
-
-            mlPredictedCareer.innerText =
-                resumeAnalysis.mlCareer;
-        }
-
-
-    }
-
-    catch (error) {
-
-        console.error(
-            "Could not restore resume analysis:",
-            error
-        );
-
-
-        localStorage.removeItem(
-            "resumeAnalysis"
-        );
-    }
-}
+// DO NOT ADD ANY "RESTORE PREVIOUS ANALYSIS"
+// localStorage code below this line.
+//
+// Resume analysis is intentionally kept only
+// in the current page/session.
+//
+// If the user refreshes the dashboard,
+// resumeAnalyzed becomes false again and
+// the resume must be uploaded and analyzed again.
+// ======================================================
