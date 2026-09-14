@@ -1,4 +1,5 @@
 const express = require("express");
+const { predictCareer } = require("../mlPredictor");
 const multer = require("multer");
 const { createWorker } = require("tesseract.js");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -277,162 +278,34 @@ JSON format:
 // ======================================================
 
 function predictCareerWithML(skills) {
-
-    return new Promise((resolve, reject) => {
-
+    try {
         if (!skills || !skills.length) {
-
-            resolve(null);
-
-            return;
+            return null;
         }
+
+        console.log("🧠 Sending skills to JavaScript ML model:");
 
         const skillsText = Array.isArray(skills)
             ? skills.join(" ")
             : String(skills);
 
-        console.log("🧠 Sending skills to ML model:");
         console.log(skillsText);
 
-        const pythonScript = path.join(
-            __dirname,
-            "..",
-            "..",
-            "ml",
-            "predict.py"
+        const career = predictCareer(skillsText);
+
+        console.log("🎯 ML Predicted Career:", career);
+
+        return career;
+
+    } catch (error) {
+        console.error(
+            "⚠️ ML prediction failed:",
+            error.message
         );
 
-        const mlFolder = path.join(
-            __dirname,
-            "..",
-            "..",
-            "ml"
-        );
-
-        console.log("🐍 Running ML:");
-        console.log(pythonScript);
-
-        const pythonProcess = spawn(
-            "py",
-            [pythonScript, skillsText],
-            {
-                cwd: mlFolder
-            }
-        );
-
-        pythonProcess.on("error", (error) => {
-
-            console.error(
-                "🐍 Python process error:",
-                error.message
-            );
-
-            reject(error);
-        });
-
-        let output = "";
-        let errorOutput = "";
-
-        pythonProcess.stdout.on(
-            "data",
-            (data) => {
-
-                output += data.toString();
-
-            }
-        );
-
-        pythonProcess.stderr.on(
-            "data",
-            (data) => {
-
-                errorOutput += data.toString();
-
-            }
-        );
-
-        pythonProcess.on(
-            "close",
-            (code) => {
-
-                console.log(
-                    "🐍 ML process finished. Code:",
-                    code
-                );
-
-                if (errorOutput) {
-
-                    console.error(
-                        "ML Error:",
-                        errorOutput
-                    );
-                }
-
-                if (code !== 0) {
-
-                    reject(
-                        new Error(
-                            "ML prediction process failed."
-                        )
-                    );
-
-                    return;
-                }
-
-                try {
-
-                    const lines = output
-                        .trim()
-                        .split(/\r?\n/);
-
-                    const jsonLine = lines
-                        .reverse()
-                        .find(
-                            line =>
-                                line.trim().startsWith("{")
-                        );
-
-                    if (!jsonLine) {
-
-                        throw new Error(
-                            "ML did not return valid JSON."
-                        );
-                    }
-
-                    const result =
-                        JSON.parse(jsonLine);
-
-                    if (!result.success) {
-
-                        throw new Error(
-                            result.message ||
-                            "Career prediction failed."
-                        );
-                    }
-
-                    console.log(
-                        "🎯 ML Predicted Career:",
-                        result.career
-                    );
-
-                    resolve(
-                        result.career
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "ML JSON parsing error:",
-                        error
-                    );
-
-                    reject(error);
-                }
-            }
-        );
-    });
+        return null;
+    }
 }
-
 // ======================================================
 // RESUME ANALYZER
 // ======================================================
